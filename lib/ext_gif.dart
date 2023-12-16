@@ -28,9 +28,15 @@ enum Autostart {
 
 class CachedInfo {
   List<FrameInfo> image;
-  Uint8List bytes;
+  int length;
 
-  CachedInfo(this.image, this.bytes);
+  void dispose() {
+    for (var frameInfo in image) {
+      frameInfo.image.dispose();
+    }
+  }
+
+  CachedInfo(this.image, this.length);
 }
 
 class ExtGifCached {
@@ -64,7 +70,7 @@ class ExtGifCached {
   }
 
   int get maximumSize => _maximumSize;
-  int _maximumSize = 100;
+  int _maximumSize = 50;
 
   set maximumSize(int value) {
     assert(value >= 0);
@@ -104,8 +110,9 @@ class ExtGifCached {
         _currentSizeBytes > _maximumSizeBytes || _cache.length > _maximumSize) {
       final Object key = _cache.keys.first;
       final CachedInfo cachedInfo = _cache[key]!;
-      _currentSizeBytes -= cachedInfo.bytes.length;
+      _currentSizeBytes -= cachedInfo.length;
       _cache.remove(key);
+      cachedInfo.dispose();
     }
     assert(_currentSizeBytes >= 0);
     assert(_cache.length <= maximumSize);
@@ -231,7 +238,7 @@ class ExtGif extends StatefulWidget {
     }
 
     if (frames.isNotEmpty && cacheKey != null) {
-      ExtGifCached.instance.add(cacheKey, CachedInfo(frames, bytes));
+      ExtGifCached.instance.add(cacheKey, CachedInfo(frames, bytes.length));
     }
 
     return frames;
