@@ -352,6 +352,7 @@ class ExtImage extends StatefulWidget {
     this.gaplessPlayback = false,
     this.isAntiAlias = false,
     this.filterQuality = FilterQuality.low,
+    this.canMultiFrame = true,
   });
 
   /// Creates a widget that displays an [ImageStream] obtained from the network.
@@ -403,6 +404,7 @@ class ExtImage extends StatefulWidget {
     this.gaplessPlayback = false,
     this.filterQuality = FilterQuality.low,
     this.isAntiAlias = false,
+    this.canMultiFrame = true,
     Map<String, String>? headers,
     int? cacheWidth,
     int? cacheHeight,
@@ -462,6 +464,7 @@ class ExtImage extends StatefulWidget {
     this.gaplessPlayback = false,
     this.isAntiAlias = false,
     this.filterQuality = FilterQuality.low,
+    this.canMultiFrame = true,
     int? cacheWidth,
     int? cacheHeight,
   })  :
@@ -625,6 +628,7 @@ class ExtImage extends StatefulWidget {
     this.isAntiAlias = false,
     String? package,
     this.filterQuality = FilterQuality.low,
+    this.canMultiFrame = true,
     int? cacheWidth,
     int? cacheHeight,
   })  : image = ResizeImage.resizeIfNeeded(
@@ -690,6 +694,7 @@ class ExtImage extends StatefulWidget {
     this.gaplessPlayback = false,
     this.isAntiAlias = false,
     this.filterQuality = FilterQuality.low,
+    this.canMultiFrame = true,
     int? cacheWidth,
     int? cacheHeight,
   })  : image = ResizeImage.resizeIfNeeded(
@@ -700,6 +705,8 @@ class ExtImage extends StatefulWidget {
 
   /// The image to display.
   final ImageProvider image;
+
+  final bool canMultiFrame;
 
   /// A builder function responsible for creating the widget that represents
   /// this image.
@@ -1053,7 +1060,6 @@ class _ExtImageState extends State<ExtImage> with WidgetsBindingObserver {
 
   @override
   void dispose() {
-    assert(_imageStream != null);
     WidgetsBinding.instance.removeObserver(this);
     _stopListeningToStream();
     _completerHandle?.dispose();
@@ -1082,10 +1088,11 @@ class _ExtImageState extends State<ExtImage> with WidgetsBindingObserver {
     if (_isListeningToStream &&
         (widget.loadingBuilder == null) != (oldWidget.loadingBuilder == null)) {
       final ImageStreamListener oldListener = _getListener();
-      _imageStream!.addListener(_getListener(recreateListener: true));
-      _imageStream!.removeListener(oldListener);
+      _imageStream?.addListener(_getListener(recreateListener: true));
+      _imageStream?.removeListener(oldListener);
     }
-    if (widget.image != oldWidget.image) {
+    if (widget.image != oldWidget.image ||
+        widget.canMultiFrame != oldWidget.canMultiFrame) {
       _resolveImage();
     }
   }
@@ -1154,6 +1161,11 @@ class _ExtImageState extends State<ExtImage> with WidgetsBindingObserver {
   }
 
   void _handleImageFrame(ImageInfo imageInfo, bool synchronousCall) {
+    if (!widget.canMultiFrame && _imageInfo != null) {
+      _stopListeningToStream();
+      _imageStream = null;
+      return;
+    }
     setState(() {
       _replaceImage(info: imageInfo);
       _loadingProgress = null;
@@ -1161,6 +1173,11 @@ class _ExtImageState extends State<ExtImage> with WidgetsBindingObserver {
       _lastStack = null;
       _frameNumber = _frameNumber == null ? 0 : _frameNumber! + 1;
       _wasSynchronouslyLoaded = _wasSynchronouslyLoaded | synchronousCall;
+      if (!widget.canMultiFrame) {
+        _stopListeningToStream();
+        _imageStream = null;
+        return;
+      }
     });
   }
 
@@ -1189,7 +1206,7 @@ class _ExtImageState extends State<ExtImage> with WidgetsBindingObserver {
     }
 
     if (_isListeningToStream) {
-      _imageStream!.removeListener(_getListener());
+      _imageStream?.removeListener(_getListener());
     }
 
     if (!widget.gaplessPlayback) {
@@ -1205,9 +1222,8 @@ class _ExtImageState extends State<ExtImage> with WidgetsBindingObserver {
     });
 
     _imageStream = newStream;
-    if (_isListeningToStream) {
-      _imageStream!.addListener(_getListener());
-    }
+    _imageStream!.addListener(_getListener());
+    _isListeningToStream = true;
   }
 
   void _listenToStream() {
@@ -1215,7 +1231,7 @@ class _ExtImageState extends State<ExtImage> with WidgetsBindingObserver {
       return;
     }
 
-    _imageStream!.addListener(_getListener());
+    _imageStream?.addListener(_getListener());
     _completerHandle?.dispose();
     _completerHandle = null;
 
@@ -1237,10 +1253,10 @@ class _ExtImageState extends State<ExtImage> with WidgetsBindingObserver {
     if (keepStreamAlive &&
         _completerHandle == null &&
         _imageStream?.completer != null) {
-      _completerHandle = _imageStream!.completer!.keepAlive();
+      _completerHandle = _imageStream?.completer?.keepAlive();
     }
 
-    _imageStream!.removeListener(_getListener());
+    _imageStream?.removeListener(_getListener());
     _isListeningToStream = false;
   }
 
