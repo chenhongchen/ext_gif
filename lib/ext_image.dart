@@ -1142,10 +1142,12 @@ class _ExtImageState extends State<ExtImage> with WidgetsBindingObserver {
         onChunk: widget.loadingBuilder == null ? null : _handleImageChunk,
         onError: widget.errorBuilder != null || kDebugMode
             ? (Object error, StackTrace? stackTrace) {
-                setState(() {
-                  _lastException = error;
-                  _lastStack = stackTrace;
-                });
+                if (mounted) {
+                  setState(() {
+                    _lastException = error;
+                    _lastStack = stackTrace;
+                  });
+                }
                 assert(() {
                   if (widget.errorBuilder == null) {
                     // ignore: only_throw_errors, since we're just proxying the error.
@@ -1166,28 +1168,32 @@ class _ExtImageState extends State<ExtImage> with WidgetsBindingObserver {
       _imageStream = null;
       return;
     }
-    setState(() {
-      _replaceImage(info: imageInfo);
-      _loadingProgress = null;
-      _lastException = null;
-      _lastStack = null;
-      _frameNumber = _frameNumber == null ? 0 : _frameNumber! + 1;
-      _wasSynchronouslyLoaded = _wasSynchronouslyLoaded | synchronousCall;
-      if (!widget.canMultiFrame) {
-        _stopListeningToStream();
-        _imageStream = null;
-        return;
-      }
-    });
+    if (mounted) {
+      setState(() {
+        _replaceImage(info: imageInfo);
+        _loadingProgress = null;
+        _lastException = null;
+        _lastStack = null;
+        _frameNumber = _frameNumber == null ? 0 : _frameNumber! + 1;
+        _wasSynchronouslyLoaded = _wasSynchronouslyLoaded | synchronousCall;
+        if (!widget.canMultiFrame) {
+          _stopListeningToStream();
+          _imageStream = null;
+          return;
+        }
+      });
+    }
   }
 
   void _handleImageChunk(ImageChunkEvent event) {
     assert(widget.loadingBuilder != null);
-    setState(() {
-      _loadingProgress = event;
-      _lastException = null;
-      _lastStack = null;
-    });
+    if (mounted) {
+      setState(() {
+        _loadingProgress = event;
+        _lastException = null;
+        _lastStack = null;
+      });
+    }
   }
 
   void _replaceImage({required ImageInfo? info}) {
@@ -1209,17 +1215,19 @@ class _ExtImageState extends State<ExtImage> with WidgetsBindingObserver {
       _imageStream?.removeListener(_getListener());
     }
 
-    if (!widget.gaplessPlayback) {
+    if (!widget.gaplessPlayback && mounted) {
       setState(() {
         _replaceImage(info: null);
       });
     }
 
-    setState(() {
-      _loadingProgress = null;
-      _frameNumber = null;
-      _wasSynchronouslyLoaded = false;
-    });
+    if (mounted) {
+      setState(() {
+        _loadingProgress = null;
+        _frameNumber = null;
+        _wasSynchronouslyLoaded = false;
+      });
+    }
 
     _imageStream = newStream;
     _imageStream!.addListener(_getListener());
